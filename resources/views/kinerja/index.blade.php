@@ -1,0 +1,473 @@
+@extends('layouts.app')
+
+@section('title', 'Kinerja Petugas | Buku Tamu')
+
+@section('content')
+@php
+    $total = $ringkas['total'];
+    $ada = $total > 0;
+    $n = count($tanggal);
+    $persenSelesai = $total > 0 ? (int) round($ringkas['selesai'] / $total * 100) : 0;
+
+    $teksDurasi = function (?int $menit) {
+        if ($menit === null) {
+            return '-';
+        }
+
+        return $menit >= 60 ? intdiv($menit, 60) . ' j ' . ($menit % 60) . ' m' : $menit . ' menit';
+    };
+
+    $rentang = [
+        '7 hari'    => [now()->subDays(6)->toDateString(), now()->toDateString()],
+        '30 hari'   => [now()->subDays(29)->toDateString(), now()->toDateString()],
+        '90 hari'   => [now()->subDays(89)->toDateString(), now()->toDateString()],
+        'Bulan ini' => [now()->startOfMonth()->toDateString(), now()->toDateString()],
+    ];
+
+    $kartu = [
+        [
+            'label' => 'Tamu dilayani',
+            'nilai' => $total,
+            'ket'   => $ringkas['jumlahPetugas'] . ' petugas melayani',
+            'latar' => 'bg-brand-50 text-brand-700',
+            'ikon'  => 'M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z',
+        ],
+        [
+            'label' => 'Layanan selesai',
+            'nilai' => $ringkas['selesai'],
+            'ket'   => $persenSelesai . '% dari seluruh tamu',
+            'latar' => 'bg-emerald-50 text-emerald-700',
+            'ikon'  => 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+        ],
+        [
+            'label' => 'Rata-rata durasi layanan',
+            'nilai' => $teksDurasi($ringkas['rataDurasi']),
+            'ket'   => 'dihitung dari masuk sampai check-out',
+            'latar' => 'bg-amber-50 text-amber-700',
+            'ikon'  => 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z',
+        ],
+        [
+            'label' => 'Kelengkapan foto bukti',
+            'nilai' => $ringkas['persenBukti'] === null ? '-' : $ringkas['persenBukti'] . '%',
+            'ket'   => $ringkas['denganFoto'] . ' dari ' . $ringkas['selesai'] . ' check-out berfoto',
+            'latar' => 'bg-sky-50 text-sky-700',
+            'ikon'  => 'M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316zM16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z',
+        ],
+    ];
+
+    $medali = ['#f59e0b', '#94a3b8', '#b45309'];
+    $teratas = collect($barisBulan)->filter(fn ($b) => $b['total'] > 0)->take(3)->values();
+@endphp
+
+{{-- Judul dan rentang cepat --}}
+<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div>
+        <h1 class="ui-title">Kinerja petugas</h1>
+        <p class="mt-1 text-sm text-slate-500">
+            {{ $dari->copy()->locale('id')->translatedFormat('d F Y') }} &ndash; {{ $sampai->copy()->locale('id')->translatedFormat('d F Y') }}
+        </p>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+        @foreach ($rentang as $label => $tgl)
+            @php
+                $rentangAktif = $dari->toDateString() === $tgl[0] && $sampai->toDateString() === $tgl[1];
+            @endphp
+            <a href="{{ route('kinerja.index', array_filter(['dari' => $tgl[0], 'sampai' => $tgl[1], 'layanan' => $layananDipilih])) }}"
+               class="ui-btn !px-3 !py-1.5 {{ $rentangAktif ? 'bg-brand-700 text-white' : 'ui-btn-secondary' }}">{{ $label }}</a>
+        @endforeach
+    </div>
+</div>
+
+@if ($errors->any())
+    <div class="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        {{ $errors->first() }}
+    </div>
+@endif
+
+{{-- Filter --}}
+<form method="GET" action="{{ route('kinerja.index') }}" class="ui-card mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div>
+        <label class="ui-label">Dari tanggal</label>
+        <input type="date" name="dari" value="{{ $dari->toDateString() }}" class="ui-field">
+    </div>
+    <div>
+        <label class="ui-label">Sampai tanggal</label>
+        <input type="date" name="sampai" value="{{ $sampai->toDateString() }}" class="ui-field">
+    </div>
+    <div class="lg:col-span-2">
+        <label class="ui-label">Layanan</label>
+        <select name="layanan" class="ui-field">
+            <option value="">Semua layanan</option>
+            @foreach ($layanans as $kategori => $daftarSub)
+                <option value="{{ $kategori }}" @selected($layananDipilih === $kategori)>{{ $kategori }}{{ $daftarSub ? ' (semua)' : '' }}</option>
+                @foreach ($daftarSub as $sub)
+                    <option value="{{ $kategori }}|{{ $sub }}" @selected($layananDipilih === $kategori . '|' . $sub)>{{ $kategori }} - {{ $sub }}</option>
+                @endforeach
+            @endforeach
+        </select>
+    </div>
+    <div class="flex items-end gap-2">
+        <button class="ui-btn ui-btn-primary">Terapkan</button>
+        <a href="{{ route('kinerja.index') }}" class="ui-btn ui-btn-secondary">Reset</a>
+    </div>
+</form>
+
+{{-- Kartu ringkasan --}}
+<div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    @foreach ($kartu as $k)
+        <div class="ui-card flex items-center gap-4">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl {{ $k['latar'] }}">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="{{ $k['ikon'] }}" />
+                </svg>
+            </div>
+            <div class="min-w-0">
+                <p class="text-xs text-slate-500">{{ $k['label'] }}</p>
+                <p class="mt-0.5 text-2xl font-semibold text-slate-900">{{ $k['nilai'] }}</p>
+                <p class="text-xs text-slate-400">{{ $k['ket'] }}</p>
+            </div>
+        </div>
+    @endforeach
+</div>
+
+@if ($ringkas['tanpaPetugas'] > 0)
+    <div class="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+        {{ $ringkas['tanpaPetugas'] }} kunjungan pada periode ini masih antrean (belum diambil petugas), sehingga tidak masuk hitungan di bawah.
+    </div>
+@endif
+
+{{-- ===================== PENILAIAN BULANAN ===================== --}}
+<div class="ui-card mb-6">
+    <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+            <h2 class="text-sm font-semibold text-brand-900">Penilaian petugas bulan {{ $namaBulan }}</h2>
+            <p class="mt-0.5 text-xs text-slate-500">
+                Bintang dari pimpinan untuk petugas dengan jumlah tamu yang dilayani terbaik.
+            </p>
+        </div>
+
+        <form method="GET" action="{{ route('kinerja.index') }}" class="flex items-end gap-2">
+            @foreach (array_filter(['dari' => request('dari'), 'sampai' => request('sampai'), 'layanan' => request('layanan')]) as $kunci => $isi)
+                <input type="hidden" name="{{ $kunci }}" value="{{ $isi }}">
+            @endforeach
+            <input type="month" name="bulan" value="{{ $bulan }}" max="{{ now()->format('Y-m') }}" class="ui-field !mt-0">
+            <button class="ui-btn ui-btn-secondary">Lihat</button>
+        </form>
+    </div>
+
+    @if ($teratas->isEmpty())
+        <p class="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+            Belum ada tamu yang dilayani petugas pada bulan ini.
+        </p>
+    @else
+        <div class="mb-6 grid gap-4 sm:grid-cols-3">
+            @foreach ($teratas as $i => $b)
+                <div class="rounded-2xl border p-4 text-center {{ $i === 0 ? 'border-amber-300 bg-amber-50/60' : 'border-slate-200 bg-white' }}">
+                    <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white"
+                         style="background: {{ $medali[$i] }}">{{ $i + 1 }}</div>
+                    <img src="{{ $b['foto'] }}" alt="Foto {{ $b['nama'] }}" class="mx-auto mt-3 h-14 w-14 rounded-full object-cover shadow ring-2 ring-white">
+                    <p class="mt-2 truncate font-semibold text-slate-900">{{ $b['nama'] }}</p>
+                    <p class="text-2xl font-bold text-brand-800">{{ $b['total'] }}</p>
+                    <p class="text-xs text-slate-500">tamu dilayani</p>
+                    <div class="mt-2">
+                        @include('kinerja._bintang', ['nilai' => $b['rataBintang'], 'jumlah' => $b['jumlahPenilai']])
+                    </div>
+                    @if ($i === 0)
+                        <span class="mt-2 inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Terbanyak bulan ini</span>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    @endif
+
+    @if (count($barisBulan) > 0)
+        <div class="divide-y divide-slate-100 rounded-xl border border-slate-200">
+            @foreach ($barisBulan as $b)
+                <div class="flex flex-wrap items-center justify-between gap-4 px-4 py-3">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700">{{ $loop->iteration }}</span>
+                        <img src="{{ $b['foto'] }}" alt="Foto {{ $b['nama'] }}" class="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-slate-200">
+                        <div class="min-w-0">
+                            <p class="truncate font-medium text-slate-900">{{ $b['nama'] }}</p>
+                            <p class="text-xs text-slate-500">{{ $b['total'] }} tamu &middot; {{ $b['selesai'] }} selesai</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        @include('kinerja._bintang', ['nilai' => $b['rataBintang'], 'jumlah' => $b['jumlahPenilai']])
+                    </div>
+
+                    @if ($bisaMenilai)
+                        <form method="POST" action="{{ route('kinerja.nilai', $b['id']) }}" class="flex flex-wrap items-center gap-2">
+                            @csrf
+                            <input type="hidden" name="bulan" value="{{ $bulan }}">
+
+                            <div class="st-pilih" role="radiogroup" aria-label="Beri bintang untuk {{ $b['nama'] }}">
+                                @foreach ([5, 4, 3, 2, 1] as $s)
+                                    <input type="radio" name="bintang" id="b{{ $b['id'] }}-{{ $s }}" value="{{ $s }}" @checked($b['bintangSaya'] === $s)>
+                                    <label for="b{{ $b['id'] }}-{{ $s }}" title="{{ $s }} bintang">★</label>
+                                @endforeach
+                            </div>
+
+                            <input type="text" name="catatan" maxlength="200" value="{{ $b['catatanSaya'] }}"
+                                   placeholder="Catatan (opsional)" class="ui-field !mt-0 !w-52">
+                            <button class="ui-btn ui-btn-primary !px-3 !py-1.5">Simpan</button>
+                        </form>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+
+        @if ($bisaMenilai)
+            <p class="mt-3 text-xs text-slate-400">Penilaian Anda dapat diubah kapan saja selama bulan berjalan. Satu pimpinan memberi satu penilaian per petugas tiap bulan.</p>
+        @endif
+    @endif
+</div>
+
+@if (! $ada)
+    <div class="ui-card py-14 text-center">
+        <p class="text-sm font-medium text-slate-700">Belum ada kunjungan yang ditangani petugas pada periode ini</p>
+        <p class="mt-1 text-sm text-slate-500">Ubah rentang tanggal atau layanan untuk melihat grafik kinerja petugas.</p>
+    </div>
+@else
+    @php
+        $maksTotal = max(1, collect($baris)->max('total'));
+    @endphp
+
+    <div class="mb-6 grid gap-6 lg:grid-cols-3">
+        {{-- Batang bertumpuk: beban dan hasil per petugas --}}
+        <div class="ui-card lg:col-span-2">
+            <div class="mb-5 flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-sm font-semibold text-brand-900">Beban dan hasil layanan per petugas</h2>
+                <div class="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                    <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm" style="background:#10b981"></span>Selesai</span>
+                    <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm" style="background:#f59e0b"></span>Belum selesai</span>
+                    <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm" style="background:#ef4444"></span>Ditolak</span>
+                </div>
+            </div>
+
+            @foreach ($baris as $b)
+                <div class="mb-4 last:mb-0">
+                    <div class="mb-1.5 flex items-center justify-between gap-3 text-sm">
+                        <span class="flex min-w-0 items-center gap-2 text-slate-700">
+                            <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background: {{ $b['warna'] }}"></span>
+                            <span class="truncate">{{ $b['nama'] }}</span>
+                        </span>
+                        <span class="shrink-0 text-slate-500">
+                            <span class="font-semibold text-slate-900">{{ $b['total'] }}</span> tamu
+                        </span>
+                    </div>
+
+                    <div class="h-3 rounded-full bg-slate-100">
+                        <div class="flex h-3 overflow-hidden rounded-full" style="width: {{ round($b['total'] / $maksTotal * 100) }}%">
+                            @if ($b['total'] > 0)
+                                <div style="width: {{ $b['selesai'] / $b['total'] * 100 }}%; background:#10b981" title="Selesai: {{ $b['selesai'] }}"></div>
+                                <div style="width: {{ $b['melayani'] / $b['total'] * 100 }}%; background:#f59e0b" title="Belum selesai: {{ $b['melayani'] }}"></div>
+                                <div style="width: {{ $b['ditolak'] / $b['total'] * 100 }}%; background:#ef4444" title="Ditolak: {{ $b['ditolak'] }}"></div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        {{-- Donat: porsi layanan --}}
+        <div class="ui-card">
+            <h2 class="mb-4 text-sm font-semibold text-brand-900">Porsi layanan per petugas</h2>
+
+            @php
+                $jari = 15.91549430918954;
+                $kumulatif = 0;
+            @endphp
+
+            <div class="flex justify-center">
+                <svg viewBox="0 0 42 42" class="h-44 w-44" role="img" aria-label="Porsi layanan per petugas">
+                    <circle cx="21" cy="21" r="{{ $jari }}" fill="none" stroke="#f1f5f9" stroke-width="5"></circle>
+                    @foreach ($baris as $b)
+                        @if ($b['total'] > 0)
+                            @php
+                                $porsi = $b['total'] / $total * 100;
+                            @endphp
+                            <circle cx="21" cy="21" r="{{ $jari }}" fill="none" stroke="{{ $b['warna'] }}" stroke-width="5"
+                                    stroke-dasharray="{{ round($porsi, 2) }} {{ round(100 - $porsi, 2) }}"
+                                    stroke-dashoffset="{{ round(25 - $kumulatif, 2) }}">
+                                <title>{{ $b['nama'] }}: {{ $b['total'] }} tamu ({{ round($porsi) }}%)</title>
+                            </circle>
+                            @php
+                                $kumulatif += $porsi;
+                            @endphp
+                        @endif
+                    @endforeach
+                    <text x="21" y="21.5" text-anchor="middle" font-size="7" font-weight="700" fill="#1e2a78">{{ $total }}</text>
+                    <text x="21" y="26.5" text-anchor="middle" font-size="2.8" fill="#64748b">tamu</text>
+                </svg>
+            </div>
+
+            <ul class="mt-4 space-y-2 text-sm">
+                @foreach ($baris as $b)
+                    <li class="flex items-center justify-between gap-3">
+                        <span class="flex min-w-0 items-center gap-2 text-slate-600">
+                            <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background: {{ $b['warna'] }}"></span>
+                            <span class="truncate">{{ $b['nama'] }}</span>
+                        </span>
+                        <span class="shrink-0 text-slate-500">
+                            <span class="font-semibold text-slate-900">{{ $b['total'] }}</span>
+                            &middot; {{ $total > 0 ? round($b['total'] / $total * 100) : 0 }}%
+                        </span>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    </div>
+
+    {{-- Garis: tren harian --}}
+    @php
+        $lebar = 760;
+        $tinggi = 250;
+        $kiri = 36;
+        $kanan = 14;
+        $atas = 12;
+        $bawah = 28;
+        $lebarPlot = $lebar - $kiri - $kanan;
+        $tinggiPlot = $tinggi - $atas - $bawah;
+
+        $maksHari = max(1, collect($baris)->flatMap(fn ($b) => $b['harian'])->max());
+        $skala = max(4, (int) ceil($maksHari / 4) * 4);
+        $langkah = max(1, (int) ceil($n / 8));
+
+        $px = fn ($i) => $kiri + ($n > 1 ? $i / ($n - 1) * $lebarPlot : $lebarPlot / 2);
+        $py = fn ($v) => $atas + $tinggiPlot - ($v / $skala * $tinggiPlot);
+
+        $seri = array_slice(array_values(array_filter($baris, fn ($b) => $b['total'] > 0)), 0, 6);
+    @endphp
+
+    <div class="ui-card mb-6">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold text-brand-900">Tren kunjungan harian per petugas</h2>
+            <div class="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                @foreach ($seri as $s)
+                    <span class="flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 rounded-sm" style="background: {{ $s['warna'] }}"></span>{{ $s['nama'] }}
+                    </span>
+                @endforeach
+            </div>
+        </div>
+
+        <svg viewBox="0 0 {{ $lebar }} {{ $tinggi }}" class="h-auto w-full" role="img" aria-label="Tren kunjungan harian per petugas">
+            @foreach ([0, 1, 2, 3, 4] as $g)
+                @php
+                    $nilaiGaris = (int) round($skala * $g / 4);
+                @endphp
+                <line x1="{{ $kiri }}" x2="{{ $lebar - $kanan }}" y1="{{ round($py($nilaiGaris), 1) }}" y2="{{ round($py($nilaiGaris), 1) }}"
+                      stroke="#e2e8f0" stroke-dasharray="{{ $g === 0 ? '0' : '4 4' }}"></line>
+                <text x="{{ $kiri - 8 }}" y="{{ round($py($nilaiGaris) + 3, 1) }}" text-anchor="end" font-size="10" fill="#94a3b8">{{ $nilaiGaris }}</text>
+            @endforeach
+
+            @foreach ($tanggal as $i => $tgl)
+                @if ($i % $langkah === 0)
+                    <text x="{{ round($px($i), 1) }}" y="{{ $tinggi - 8 }}" text-anchor="middle" font-size="10" fill="#94a3b8">{{ \Carbon\Carbon::parse($tgl)->format('d/m') }}</text>
+                @endif
+            @endforeach
+
+            @foreach ($seri as $s)
+                @php
+                    $titikSeri = collect($s['harian'])->map(fn ($v, $i) => round($px($i), 1) . ',' . round($py($v), 1))->implode(' ');
+                @endphp
+                <polyline points="{{ $titikSeri }}" fill="none" stroke="{{ $s['warna'] }}" stroke-width="2.5"
+                          stroke-linejoin="round" stroke-linecap="round"></polyline>
+
+                @foreach ($s['harian'] as $i => $v)
+                    @if ($v > 0)
+                        <circle cx="{{ round($px($i), 1) }}" cy="{{ round($py($v), 1) }}" r="3.5" fill="#fff" stroke="{{ $s['warna'] }}" stroke-width="2">
+                            <title>{{ $s['nama'] }}, {{ \Carbon\Carbon::parse($tanggal[$i])->format('d/m/Y') }}: {{ $v }} tamu</title>
+                        </circle>
+                    @endif
+                @endforeach
+            @endforeach
+        </svg>
+
+        @if (count($baris) > count($seri))
+            <p class="mt-2 text-xs text-slate-400">Grafik menampilkan {{ count($seri) }} petugas dengan tamu terbanyak.</p>
+        @endif
+    </div>
+
+    {{-- Tabel peringkat --}}
+    <div class="ui-card overflow-hidden !p-0">
+        <div class="px-5 py-4">
+            <h2 class="text-sm font-semibold text-brand-900">Peringkat dan rincian petugas</h2>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-left text-sm">
+                <thead class="border-y border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                        <th class="px-5 py-3 font-medium">Petugas</th>
+                        <th class="px-5 py-3 text-right font-medium">Tamu</th>
+                        <th class="px-5 py-3 text-right font-medium">Selesai</th>
+                        <th class="px-5 py-3 text-right font-medium">Belum selesai</th>
+                        <th class="px-5 py-3 text-right font-medium">Ditolak</th>
+                        <th class="px-5 py-3 font-medium">Rata-rata durasi</th>
+                        <th class="px-5 py-3 font-medium">Foto bukti</th>
+                        <th class="px-5 py-3 font-medium">Tren</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @foreach ($baris as $b)
+                        @php
+                            $sm = max(1, max($b['harian']));
+                            $titik = [];
+                            foreach ($b['harian'] as $i => $v) {
+                                $sx = $n > 1 ? round($i / ($n - 1) * 100, 1) : 50;
+                                $sy = round(28 - ($v / $sm) * 24 - 2, 1);
+                                $titik[] = $sx . ',' . $sy;
+                            }
+
+                            $warnaBukti = $b['bukti'] === null ? '#cbd5e1' : ($b['bukti'] >= 90 ? '#10b981' : ($b['bukti'] >= 60 ? '#f59e0b' : '#ef4444'));
+                        @endphp
+                        <tr class="align-middle hover:bg-brand-50/40">
+                            <td class="px-5 py-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700">{{ $loop->iteration }}</span>
+                                    <img src="{{ $b['foto'] }}" alt="Foto {{ $b['nama'] }}" class="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-slate-200">
+                                    <div class="min-w-0">
+                                        <p class="truncate font-medium text-slate-900">{{ $b['nama'] }}</p>
+                                        @if (! $b['aktif'])
+                                            <p class="text-xs text-slate-400">Nonaktif</p>
+                                        @endif
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-5 py-3 text-right font-semibold text-slate-900">{{ $b['total'] }}</td>
+                            <td class="px-5 py-3 text-right text-emerald-700">{{ $b['selesai'] }}</td>
+                            <td class="px-5 py-3 text-right text-amber-700">{{ $b['melayani'] }}</td>
+                            <td class="px-5 py-3 text-right text-red-600">{{ $b['ditolak'] }}</td>
+                            <td class="whitespace-nowrap px-5 py-3 text-slate-700">{{ $teksDurasi($b['durasi']) }}</td>
+                            <td class="px-5 py-3">
+                                @if ($b['bukti'] === null)
+                                    <span class="text-slate-400">-</span>
+                                @else
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-2 w-24 rounded-full bg-slate-100">
+                                            <div class="h-2 rounded-full" style="width: {{ $b['bukti'] }}%; background: {{ $warnaBukti }}"></div>
+                                        </div>
+                                        <span class="text-xs font-medium text-slate-600">{{ $b['bukti'] }}%</span>
+                                    </div>
+                                @endif
+                            </td>
+                            <td class="px-5 py-3">
+                                <svg viewBox="0 0 100 28" preserveAspectRatio="none" class="h-7 w-28" aria-hidden="true">
+                                    <polyline points="{{ implode(' ', $titik) }}" fill="none" stroke="{{ $b['warna'] }}" stroke-width="2"
+                                              stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></polyline>
+                                </svg>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+@endif
+
+@include('kinerja._gaya')
+@endsection

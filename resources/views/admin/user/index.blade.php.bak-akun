@@ -1,0 +1,187 @@
+@extends('layouts.app')
+
+@section('title', 'Kelola Akun | Buku Tamu')
+
+@section('content')
+@php
+    $daftarDikelola = $dikelola ?? $users->pluck('id')->all();
+    $namaPeran = $semuaRole ?? $roles;
+    $adalahSuperadmin = auth()->user()->adalahSuperadmin();
+
+    $warnaPeran = [
+        'superadmin' => 'bg-amber-50 text-amber-800 ring-amber-200',
+        'admin'      => 'bg-brand-50 text-brand-800 ring-brand-200',
+        'petugas'    => 'bg-sky-50 text-sky-700 ring-sky-200',
+        'pimpinan'   => 'bg-slate-100 text-slate-700 ring-slate-200',
+    ];
+@endphp
+
+<div class="mb-6">
+    <h1 class="ui-title">Kelola akun</h1>
+    <p class="mt-1 text-sm text-slate-500">Tambah dan atur akun pengguna sesuai kewenangan Anda</p>
+</div>
+
+@if (session('pesan'))
+    <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+        {{ session('pesan') }}
+    </div>
+@endif
+
+@if ($errors->any())
+    <div class="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        {{ $errors->first() }}
+    </div>
+@endif
+
+<form method="POST" action="{{ route('admin.user.store') }}" class="ui-card mb-6">
+    @csrf
+    <h2 class="mb-4 text-sm font-semibold text-brand-900">Tambah akun baru</h2>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div>
+            <label class="ui-label">Nama</label>
+            <input type="text" name="name" value="{{ old('name') }}" maxlength="100" required class="ui-field">
+        </div>
+        <div>
+            <label class="ui-label">Email</label>
+            <input type="email" name="email" value="{{ old('email') }}" maxlength="255" required class="ui-field">
+        </div>
+        <div>
+            <label class="ui-label">Peran</label>
+            <select name="role" required class="ui-field">
+                <option value="" disabled @selected(old('role') === null)>Pilih peran</option>
+                @foreach ($roles as $kunci => $label)
+                    <option value="{{ $kunci }}" @selected(old('role') === $kunci)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <label class="ui-label">Password (min. 8 karakter)</label>
+            <input type="password" name="password" minlength="8" required autocomplete="new-password" class="ui-field">
+        </div>
+        <div>
+            <label class="ui-label">Ulangi password</label>
+            <input type="password" name="password_confirmation" minlength="8" required autocomplete="new-password" class="ui-field">
+        </div>
+    </div>
+    <div class="mt-4">
+        <button class="ui-btn ui-btn-primary">Tambah akun</button>
+    </div>
+</form>
+
+<div class="ui-card overflow-hidden !p-0">
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+            <thead class="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                    <th class="px-5 py-3 font-medium">Akun</th>
+                    <th class="px-5 py-3 font-medium">Status</th>
+                    <th class="px-5 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                @foreach ($users as $u)
+                    @php
+                        $bisa = in_array($u->id, $daftarDikelola);
+                    @endphp
+                    <tr class="align-top hover:bg-brand-50/40">
+                        <td class="px-5 py-3">
+                            <div class="flex items-start gap-3">
+                                <img src="{{ $u->foto_url }}" alt="Foto {{ $u->name }}"
+                                     class="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-slate-200">
+
+                                <div class="min-w-0 flex-1">
+                                    @if ($bisa)
+                                        <form method="POST" action="{{ route('admin.user.update', $u) }}" class="flex flex-wrap items-center gap-2">
+                                            @csrf
+                                            @method('PUT')
+                                            <input type="text" name="name" value="{{ $u->name }}" maxlength="100" required class="ui-field !mt-0 !w-44">
+                                            <input type="email" name="email" value="{{ $u->email }}" maxlength="255" required class="ui-field !mt-0 !w-56">
+                                            <select name="role" class="ui-field !mt-0 !w-36">
+                                                @foreach ($roles as $kunci => $label)
+                                                    <option value="{{ $kunci }}" @selected($u->role === $kunci)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                            <button class="ui-btn ui-btn-secondary !px-3">Simpan</button>
+                                            @if ($u->id === auth()->id())
+                                                <span class="text-xs text-slate-500">(akun Anda)</span>
+                                            @endif
+                                        </form>
+                                    @else
+                                        <div class="flex flex-wrap items-center gap-3">
+                                            <span class="font-medium text-slate-900">{{ $u->name }}</span>
+                                            <span class="text-slate-600">{{ $u->email }}</span>
+                                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset {{ $warnaPeran[$u->role] ?? 'bg-slate-100 text-slate-700 ring-slate-200' }}">
+                                                {{ $namaPeran[$u->role] ?? $u->role }}
+                                            </span>
+                                            @if ($u->id === auth()->id())
+                                                <span class="text-xs text-slate-500">(akun Anda, ganti password lewat menu Ganti password)</span>
+                                            @else
+                                                <span class="text-xs text-slate-400">Hanya superadmin yang dapat mengubah</span>
+                                            @endif
+                                        </div>
+                                    @endif
+
+                                    <p class="mt-1.5 text-xs text-slate-500">
+                                        Jabatan: {{ $u->jabatan ?: '-' }}
+                                        <span class="mx-1 text-slate-300">|</span>
+                                        NIP: {{ $u->nip ?: '-' }}
+                                    </p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-5 py-3">
+                            @if ($u->aktif)
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Aktif
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>Nonaktif
+                                </span>
+                            @endif
+                        </td>
+                        <td class="px-5 py-3">
+                            @if ($bisa)
+                                <div class="flex flex-wrap items-start justify-end gap-2">
+                                    <button type="button"
+                                            onclick="document.getElementById('profil-{{ $u->id }}').showModal()"
+                                            class="ui-btn ui-btn-secondary !px-3 !py-1.5">Lengkapi profil</button>
+
+                                    <details class="relative text-left">
+                                        <summary class="ui-btn ui-btn-secondary cursor-pointer !px-3 !py-1.5">Reset password</summary>
+                                        <form method="POST" action="{{ route('admin.user.password', $u) }}"
+                                              class="absolute right-0 z-10 mt-2 flex w-64 flex-col gap-2 rounded-xl bg-white p-3 shadow-lg ring-1 ring-slate-200">
+                                            @csrf
+                                            <input type="password" name="password" placeholder="Password baru" minlength="8" required autocomplete="new-password" class="ui-field !mt-0">
+                                            <input type="password" name="password_confirmation" placeholder="Ulangi password" minlength="8" required autocomplete="new-password" class="ui-field !mt-0">
+                                            <button class="ui-btn ui-btn-primary">Simpan password</button>
+                                        </form>
+                                    </details>
+
+                                    @if ($adalahSuperadmin)
+                                        <form method="POST" action="{{ route('admin.user.reset-pin', $u) }}"
+                                              data-pesan="Reset PIN akun {{ $u->name }}?"
+                                              onsubmit="return confirm(this.dataset.pesan)">
+                                            @csrf
+                                            <button class="ui-btn ui-btn-secondary !px-3 !py-1.5">Reset PIN</button>
+                                        </form>
+                                    @endif
+
+                                    @if ($u->id !== auth()->id())
+                                        <form method="POST" action="{{ route('admin.user.toggle', $u) }}">
+                                            @csrf
+                                            <button class="ui-btn ui-btn-secondary !px-3 !py-1.5">{{ $u->aktif ? 'Nonaktifkan' : 'Aktifkan' }}</button>
+                                        </form>
+                                    @endif
+                                </div>
+
+                                @include('admin.user._profil-modal', ['user' => $u])
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endsection

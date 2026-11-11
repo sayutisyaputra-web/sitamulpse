@@ -1,0 +1,60 @@
+@extends('layouts.app')
+
+@section('title', 'Petugas Bidang | Buku Tamu')
+
+@section('content')
+<div class="mb-6">
+    <h1 class="ui-title">Petugas bidang</h1>
+    <p class="mt-1 text-sm text-slate-500">Tentukan petugas yang menangani tiap bidang. Tamu akan memilih petugas dari daftar ini.</p>
+</div>
+
+@if ($petugas->isEmpty())
+    <div class="ui-card text-center">
+        <p class="text-sm font-medium text-slate-700">Belum ada akun petugas yang aktif</p>
+        <p class="mt-1 text-sm text-slate-500">Buat akun dengan peran Petugas di menu Kelola akun terlebih dahulu.</p>
+    </div>
+@else
+    <div class="grid gap-6 lg:grid-cols-2">
+        @foreach ($bidangs as $b)
+            @php
+                $dipasang = $terpasang[$b->id] ?? [];
+            @endphp
+            <form method="POST" action="{{ route('admin.petugas-bidang.update', $b) }}" class="ui-card flex flex-col">
+                @csrf
+                @method('PUT')
+
+                <div class="mb-4 flex items-center justify-between gap-3">
+                    <h2 class="text-sm font-semibold text-brand-900">{{ $b->nama }}</h2>
+                    @if ($b->aktif)
+                        <span class="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">Aktif</span>
+                    @else
+                        <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">Nonaktif</span>
+                    @endif
+                </div>
+
+                <ul class="mb-4 space-y-2">
+                    @foreach ($petugas as $p)
+                        <li>
+                            <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">
+                                <span class="flex items-center gap-3">
+                                    <input type="checkbox" name="petugas[]" value="{{ $p->id }}"
+                                           class="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
+                                           @checked(in_array($p->id, $dipasang))>
+                                    <span class="text-slate-800">{{ $p->name }}</span>
+                                </span>
+                                @if (in_array($p->id, $sibuk))
+                                    <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-200">Sedang melayani</span>
+                                @endif
+                            </label>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <div class="mt-auto">
+                    <button class="ui-btn ui-btn-primary">Simpan</button>
+                </div>
+            </form>
+        @endforeach
+    </div>
+@endif
+@endsection

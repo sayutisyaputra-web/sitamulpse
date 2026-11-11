@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+
+@theme {
+    --font-sans: 'Segoe UI', system-ui, ui-sans-serif, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Biru tua dari banner form tamu */
+    --color-brand-50: #f0f3fb;
+    --color-brand-100: #dde4f5;
+    --color-brand-200: #bcc9ea;
+    --color-brand-300: #93a7d9;
+    --color-brand-400: #6479c2;
+    --color-brand-500: #3f55a8;
+    --color-brand-600: #2d4090;
+    --color-brand-700: #233175;
+    --color-brand-800: #1b265f;
+    --color-brand-900: #151d4a;
+    --color-brand-950: #0e1433;
+
+    /* Kuning aksen (garis di bawah judul banner) */
+    --color-accent-400: #f6c343;
+    --color-accent-500: #eab308;
+}
+
+/* Komponen bersama, dipakai di tahap-tahap berikutnya (awalan ui- agar tidak bentrok) */
+@layer components {
+    .ui-card {
+        @apply rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200;
+    }
+
+    .ui-btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-500/40;
+    }
+
+    .ui-btn-primary {
+        @apply bg-brand-700 text-white hover:bg-brand-800;
+    }
+
+    .ui-btn-secondary {
+        @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+    }
+
+    .ui-btn-danger {
+        @apply bg-red-600 text-white hover:bg-red-700;
+    }
+
+    .ui-field {
+        @apply mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30;
+    }
+
+    .ui-label {
+        @apply block text-xs font-medium text-slate-600;
+    }
+
+    .ui-title {
+        @apply text-xl font-semibold text-brand-900;
+    }
+}

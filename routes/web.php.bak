@@ -1,0 +1,114 @@
+<?php
+
+use App\Http\Controllers\Admin\BidangController;
+use App\Http\Controllers\Admin\LogAktivitasController;
+use App\Http\Controllers\Admin\PetugasBidangController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\KelolaKunjunganController;
+use App\Http\Controllers\KunciBukuTamuController;
+use App\Http\Controllers\KunjunganController;
+use App\Http\Controllers\PinController;
+use App\Http\Controllers\ProfilController;
+use App\Http\Controllers\TandaPengenalController;
+use Illuminate\Support\Facades\Route;
+
+// ===== Halaman publik untuk tamu =====
+Route::get('/', [KunjunganController::class, 'create'])->name('kunjungan.create');
+Route::post('/kunjungan', [KunjunganController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('kunjungan.store');
+Route::get('/kunjungan/sukses', [KunjunganController::class, 'sukses'])->name('kunjungan.sukses');
+
+// Daftar petugas per bidang untuk form tamu (tersedia / sedang melayani)
+Route::get('/petugas-tersedia', [KunjunganController::class, 'petugasTersedia'])
+    ->middleware('throttle:60,1')
+    ->name('kunjungan.petugas-tersedia');
+
+Route::post('/buka', [KunciBukuTamuController::class, 'buka'])
+    ->middleware('throttle:5,1')
+    ->name('buku.buka');
+Route::post('/kunci', [KunciBukuTamuController::class, 'kunci'])->name('buku.kunci');
+
+// ===== Hanya untuk yang belum login =====
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+});
+
+// ===== Hanya untuk yang sudah login =====
+Route::middleware('auth')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::get('/logout', fn () => redirect()->route('dashboard'));
+
+    Route::middleware('role:admin,petugas,pimpinan')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+        // Ganti password sendiri (semua peran)
+        Route::get('/profil/password', [ProfilController::class, 'edit'])->name('profil.password');
+        Route::put('/profil/password', [ProfilController::class, 'update'])
+            ->middleware('throttle:5,1')
+            ->name('profil.password.update');
+
+        // PIN sendiri (admin dan petugas)
+        Route::get('/profil/pin', [PinController::class, 'edit'])
+            ->middleware('role:admin,petugas')
+            ->name('profil.pin');
+        Route::put('/profil/pin', [PinController::class, 'update'])
+            ->middleware(['role:admin,petugas', 'throttle:5,1'])
+            ->name('profil.pin.update');
+
+        Route::prefix('petugas/kunjungan')->name('petugas.kunjungan.')->group(function () {
+            Route::get('/', [KelolaKunjunganController::class, 'index'])->name('index');
+
+            // Ekspor (harus di atas route /{kunjungan})
+            Route::get('/export/excel', [KelolaKunjunganController::class, 'exportExcel'])->name('export.excel');
+            Route::get('/export/pdf', [KelolaKunjunganController::class, 'exportPdf'])->name('export.pdf');
+
+            Route::get('/{kunjungan}', [KelolaKunjunganController::class, 'show'])->name('show');
+
+            // Cetak tanda pengenal tamu (hanya admin dan petugas)
+            Route::get('/{kunjungan}/cetak', [TandaPengenalController::class, 'cetak'])
+                ->middleware('role:admin,petugas')->name('cetak');
+
+            Route::post('/{kunjungan}/status', [KelolaKunjunganController::class, 'status'])
+                ->middleware('role:admin,petugas')->name('status');
+            Route::post('/{kunjungan}/checkout', [KelolaKunjunganController::class, 'checkout'])
+                ->middleware('role:admin,petugas')->name('checkout');
+            Route::delete('/{kunjungan}', [KelolaKunjunganController::class, 'destroy'])
+                ->middleware('role:superadmin')->name('destroy');
+        });
+    });
+
+    // Foto dan tanda tangan (hanya admin dan petugas)
+    Route::middleware('role:admin,petugas')->group(function () {
+        Route::get('/berkas/{kunjungan}/foto', [KunjunganController::class, 'foto'])->name('kunjungan.foto');
+        Route::get('/berkas/{kunjungan}/tanda-tangan', [KunjunganController::class, 'tandaTangan'])->name('kunjungan.tanda-tangan');
+    });
+
+    // Data master (admin dan superadmin)
+    Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/bidang', [BidangController::class, 'index'])->name('bidang.index');
+        Route::post('/bidang', [BidangController::class, 'store'])->name('bidang.store');
+        Route::put('/bidang/{bidang}', [BidangController::class, 'update'])->name('bidang.update');
+        Route::post('/bidang/{bidang}/toggle', [BidangController::class, 'toggle'])->name('bidang.toggle');
+        Route::delete('/bidang/{bidang}', [BidangController::class, 'destroy'])->name('bidang.destroy');
+
+        // Petugas yang menangani tiap bidang
+        Route::get('/petugas-bidang', [PetugasBidangController::class, 'index'])->name('petugas-bidang.index');
+        Route::put('/petugas-bidang/{bidang}', [PetugasBidangController::class, 'update'])->name('petugas-bidang.update');
+    });
+
+    // Kelola akun dan log aktivitas (hanya superadmin)
+    Route::middleware('role:superadmin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/akun', [UserController::class, 'index'])->name('user.index');
+        Route::post('/akun', [UserController::class, 'store'])->name('user.store');
+        Route::put('/akun/{user}', [UserController::class, 'update'])->name('user.update');
+        Route::post('/akun/{user}/toggle', [UserController::class, 'toggle'])->name('user.toggle');
+        Route::post('/akun/{user}/password', [UserController::class, 'password'])->name('user.password');
+        Route::post('/akun/{user}/reset-pin', [UserController::class, 'resetPin'])->name('user.reset-pin');
+
+        Route::get('/log-aktivitas', [LogAktivitasController::class, 'index'])->name('log.index');
+    });
+});
