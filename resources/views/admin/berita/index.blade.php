@@ -43,7 +43,7 @@
                                 <a href="{{ route('berita.show', $b) }}" target="_blank" class="text-slate-600 hover:underline">Lihat</a>
                             @endif
                             <a href="{{ route('berita.kelola.edit', $b) }}" class="text-blue-600 hover:underline">Ubah</a>
-                            <form method="POST" action="{{ route('berita.kelola.destroy', $b) }}"
+                            <form method="POST" action="{{ route('berita.kelola.destroy', $b) }}">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="text-red-600 hover:underline">Hapus</button>
