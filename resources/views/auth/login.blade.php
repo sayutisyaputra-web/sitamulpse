@@ -6,6 +6,7 @@
     <title>Masuk | {{ config('app.name') }}</title>
     <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body class="min-h-screen bg-slate-100 font-sans text-slate-800 antialiased">
 @php
@@ -84,7 +85,7 @@
                     <input type="checkbox" name="ingat" class="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500">
                     Ingat saya di perangkat ini
                 </label>
-
+<div class="cf-turnstile w-full" data-sitekey="{{ config('services.turnstile.site_key') }}" data-language="id" data-size="flexible" data-theme="light"></div>
                 <button type="submit" class="ui-btn ui-btn-primary w-full !py-2.5">Masuk</button>
             </form>
 
